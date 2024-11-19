@@ -4,7 +4,6 @@ import dotenv from 'dotenv';
 import path from 'path';
 import { fileURLToPath } from 'url';
 
-// Charger les variables d'environnement
 dotenv.config();
 
 const __filename = fileURLToPath(import.meta.url);
@@ -17,18 +16,21 @@ const client = new Client({
   ]
 });
 
-// Function to create welcome image
-async function createWelcomeImage(member) {
-  // Create canvas
+// Charger les images de fond une seule fois
+let welcomeBackgroundImage;
+let farewellBackgroundImage;
+
+// Function to create image (welcome or farewell)
+async function createImage(member, isWelcome) {
   const canvas = createCanvas(800, 400);
   const ctx = canvas.getContext('2d');
 
-  // Load and draw background
-  const background = await loadImage('https://images3.alphacoders.com/132/1326111.jpeg');
-  ctx.drawImage(background, 0, 0, canvas.width, canvas.height);
+  // Utiliser l'image de fond appropriée
+  const backgroundImage = isWelcome ? welcomeBackgroundImage : farewellBackgroundImage;
+  ctx.drawImage(backgroundImage, 0, 0, canvas.width, canvas.height);
 
   // Add semi-transparent overlay
-  ctx.fillStyle = 'rgba(0, 0, 0, 0.4)';
+  ctx.fillStyle = isWelcome ? (process.env.WELCOME_OVERLAY_COLOR || 'rgba(0, 0, 0, 0.4)') : (process.env.FAREWELL_OVERLAY_COLOR || 'rgba(0, 0, 0, 0.4)');
   ctx.fillRect(0, 0, canvas.width, canvas.height);
 
   // Draw circular avatar
@@ -43,9 +45,9 @@ async function createWelcomeImage(member) {
 
   // Add text
   ctx.font = 'bold 60px Sans-serif';
-  ctx.fillStyle = '#ffffff';
+  ctx.fillStyle = isWelcome ? (process.env.WELCOME_TEXT_COLOR || '#ffffff') : (process.env.FAREWELL_TEXT_COLOR || '#ffffff');
   ctx.textAlign = 'center';
-  ctx.fillText('BIENVENUE', canvas.width / 2, 280);
+  ctx.fillText(isWelcome ? (process.env.WELCOME_TEXT || 'BIENVENUE') : (process.env.FAREWELL_TEXT || 'AU REVOIR'), canvas.width / 2, 280);
 
   // Add username
   ctx.font = '40px Sans-serif';
@@ -57,33 +59,63 @@ async function createWelcomeImage(member) {
 // Listen for new members
 client.on('guildMemberAdd', async member => {
   try {
-    // Create welcome image
-    const welcomeImage = await createWelcomeImage(member);
-
-    // Find the welcome channel (using the channel ID from .env file)
+    const welcomeImage = await createImage(member, true);
     const channel = member.guild.channels.cache.get(process.env.WELCOME_CHANNEL_ID);
     if (!channel) {
-      console.error('Welcome channel not found');
-      return;
+      throw new Error(`Canal de bienvenue non trouvé. ID: ${process.env.WELCOME_CHANNEL_ID}`);
     }
 
-    // Send welcome message with image
     await channel.send({
-      content: `Bienvenue sur le serveur ${member.user.toString()} !`,
+      content: `${process.env.WELCOME_MESSAGE || 'Bienvenue sur le serveur'} ${member.user.toString()} !`,
       files: [{
         attachment: welcomeImage,
         name: 'welcome.png'
       }]
     });
   } catch (error) {
-    console.error('Error creating welcome message:', error);
+    console.error('Erreur lors de la création du message de bienvenue:', error);
   }
 });
 
-// Login to Discord
-client.login(process.env.DISCORD_BOT_TOKEN);
+// Listen for members leaving
+client.on('guildMemberRemove', async member => {
+  try {
+    const farewellImage = await createImage(member, false);
+    const channel = member.guild.channels.cache.get(process.env.FAREWELL_CHANNEL_ID);
+    if (!channel) {
+      throw new Error(`Canal d'adieu non trouvé. ID: ${process.env.FAREWELL_CHANNEL_ID}`);
+    }
+
+    await channel.send({
+      content: `${process.env.FAREWELL_MESSAGE || 'Au revoir'} ${member.user.toString()} !`,
+      files: [{
+        attachment: farewellImage,
+        name: 'farewell.png'
+      }]
+    });
+  } catch (error) {
+    console.error('Erreur lors de la création du message d\'adieu:', error);
+  }
+});
+
+// Initialisation et connexion
+async function init() {
+  try {
+    // Charger les images de fond
+    welcomeBackgroundImage = await loadImage(process.env.WELCOME_BACKGROUND_IMAGE || 'https://images3.alphacoders.com/132/1326111.jpeg');
+    farewellBackgroundImage = await loadImage(process.env.FAREWELL_BACKGROUND_IMAGE || 'https://example.com/farewell-background.jpg');
+    
+    // Connexion à Discord
+    await client.login(process.env.DISCORD_BOT_TOKEN);
+    console.log('BOT PRET BG!');
+  } catch (error) {
+    console.error('Erreur lors de l\'initialisation du bot:', error);
+  }
+}
+
+init();
 
 // Log when ready
 client.once('ready', () => {
-  console.log('BOT PRET BG!');
+  console.log(`Connecté en tant que ${client.user.tag}`);
 });
