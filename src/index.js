@@ -103,7 +103,7 @@ async function init() {
   try {
     // Charger les images de fond
     welcomeBackgroundImage = await loadImage(process.env.WELCOME_BACKGROUND_IMAGE || 'https://images3.alphacoders.com/132/1326111.jpeg');
-    farewellBackgroundImage = await loadImage(process.env.FAREWELL_BACKGROUND_IMAGE || 'https://example.com/farewell-background.jpg');
+    farewellBackgroundImage = await loadImage(process.env.FAREWELL_BACKGROUND_IMAGE || 'https://images3.alphacoders.com/132/1326111.jpeg');
     
     // Connexion à Discord
     await client.login(process.env.DISCORD_BOT_TOKEN);
